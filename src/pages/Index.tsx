@@ -1,24 +1,44 @@
-import { Hero } from "@/components/Hero";
-import { About } from "@/components/About";
-import { Projects } from "@/components/Projects";
-import { Education } from "@/components/Education";
-import { Contact } from "@/components/Contact";
+import { Navbar } from "@/components/navbar/Navbar";
+import { HeroSection } from "@/components/hero/HeroSection";
+import { SkillForge } from "@/components/skills/SkillForge";
+import { ProjectLab } from "@/components/projects/ProjectLab";
+import { HowIBuild } from "@/components/how/HowIBuild";
+import { GithubMountain } from "@/components/github/GithubMountain";
+import { JourneyPath } from "@/components/journey/JourneyPath";
+import { ContactPortal } from "@/components/contact/ContactPortal";
+import { Footer } from "@/components/footer/Footer";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Hero />
-      <About />
-      <Projects />
-      <Education />
-      <Contact />
-      
-      {/* Footer */}
-      <footer className="py-12 border-t border-border">
-        <div className="container mx-auto px-4 text-center text-muted-foreground">
-          <p className="text-sm">© 2024 Firdaus Alamanda. All rights reserved.</p>
-        </div>
-      </footer>
+      {/* ── Fixed top navigation ── */}
+      <Navbar />
+
+      <main>
+        {/* 🏠 Base Camp — first impression, hero intro */}
+        <HeroSection />
+
+        {/* ⚒ Skill Forge — tech stack as forge artifacts */}
+        <SkillForge />
+
+        {/* 🧪 Project Lab — portfolio experiments */}
+        <ProjectLab />
+
+        {/* 🏗️ How I Build Systems — process / credibility */}
+        <HowIBuild />
+
+        {/* ⛰ GitHub Mountain — activity & commit graph */}
+        <GithubMountain />
+
+        {/* 🧭 Journey Path — career timeline */}
+        <JourneyPath />
+
+        {/* 🌀 Contact Portal — collaboration gateway */}
+        <ContactPortal />
+      </main>
+
+      {/* ── Footer ── */}
+      <Footer />
     </div>
   );
 };
