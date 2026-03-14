@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Github, Star, GitFork, BookOpen, TrendingUp, Flame, Calendar } from "lucide-react";
+import {
+  Github,
+  Star,
+  GitFork,
+  BookOpen,
+  TrendingUp,
+  Flame,
+  Calendar,
+} from "lucide-react";
 import {
   fetchGitHubStats,
   GITHUB_FALLBACK_STATS,
@@ -37,11 +45,7 @@ function ContributionCell({ day }: { day: ContributionDay }) {
 }
 
 // ── Contribution grid ────────────────────────────────────────────
-function ContributionGrid({
-  weeks,
-}: {
-  weeks: GitHubStats["contributions"];
-}) {
+function ContributionGrid({ weeks }: { weeks: GitHubStats["contributions"] }) {
   // Day-of-week labels (Sun → Sat)
   const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -54,7 +58,9 @@ function ContributionGrid({
     const month = new Date(firstDay.date).getMonth();
     if (month !== lastMonth) {
       monthLabels.push({
-        label: new Date(firstDay.date).toLocaleString("default", { month: "short" }),
+        label: new Date(firstDay.date).toLocaleString("default", {
+          month: "short",
+        }),
         colIndex: i,
       });
       lastMonth = month;
@@ -68,10 +74,7 @@ function ContributionGrid({
         {Array.from({ length: 52 }).map((_, wi) => (
           <div key={wi} className="flex flex-col gap-1">
             {Array.from({ length: 7 }).map((_, di) => (
-              <div
-                key={di}
-                className="w-3 h-3 rounded-[3px] skeleton"
-              />
+              <div key={di} className="w-3 h-3 rounded-[3px] skeleton" />
             ))}
           </div>
         ))}
@@ -121,11 +124,7 @@ function ContributionGrid({
           aria-label="GitHub contribution calendar"
         >
           {weeks.map((week, wi) => (
-            <div
-              key={wi}
-              className="flex flex-col gap-[3px] flex-1"
-              role="row"
-            >
+            <div key={wi} className="flex flex-col gap-[3px] flex-1" role="row">
               {week.days.map((day) => (
                 <ContributionCell key={day.date} day={day} />
               ))}
@@ -198,17 +197,15 @@ function StatCard({
       >
         {value}
       </p>
-      <p className="font-body text-xs text-foreground/45 leading-tight">{label}</p>
+      <p className="font-body text-xs text-foreground/45 leading-tight">
+        {label}
+      </p>
     </motion.div>
   );
 }
 
 // ── Language bar ─────────────────────────────────────────────────
-function LanguageBar({
-  stats,
-}: {
-  stats: GitHubStats["topLanguages"];
-}) {
+function LanguageBar({ stats }: { stats: GitHubStats["topLanguages"] }) {
   if (!stats.length) return null;
 
   return (
@@ -260,7 +257,7 @@ function LanguageBar({
 function ActivityFeed({
   events,
 }: {
-  events: GitHubStats["recentActivity"]["recentEvents"];
+  events: GitHubStats["activity"]["recentEvents"];
 }) {
   const actionLabel: Record<string, string> = {
     PushEvent: "Pushed to",
@@ -310,12 +307,17 @@ function ActivityFeed({
               key={event.id}
               className="flex items-center gap-2.5 p-2.5 rounded-xl bg-muted/50 text-sm"
             >
-              <span className="text-base leading-none flex-shrink-0" aria-hidden="true">
+              <span
+                className="text-base leading-none flex-shrink-0"
+                aria-hidden="true"
+              >
                 {emoji}
               </span>
               <span className="font-body text-xs text-foreground/55 flex-1 truncate">
                 <span className="text-foreground/75">{label}</span>{" "}
-                <span className="font-semibold text-primary/80">{repoName}</span>
+                <span className="font-semibold text-primary/80">
+                  {repoName}
+                </span>
               </span>
               <span className="font-body text-[10px] text-foreground/35 flex-shrink-0">
                 {date}
@@ -364,7 +366,7 @@ export function GithubMountain() {
               following: 0,
               created_at: "",
             },
-          });
+          } as import("@/lib/github").GitHubStats);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -399,19 +401,19 @@ export function GithubMountain() {
         },
         {
           icon: Flame,
-          value: `${stats.recentActivity.activeStreakDays}d`,
+          value: `${stats.activity.activeStreakDays}d`,
           label: "Active Streak",
           color: "#FF7AA2",
         },
         {
           icon: TrendingUp,
-          value: stats.recentActivity.totalCommitsThisYear,
-          label: "Commits This Year",
+          value: stats.activity.totalContributionsLastYear,
+          label: "Contributions / Year",
           color: "#5ED6A3",
         },
         {
           icon: Calendar,
-          value: stats.recentActivity.lastActiveDate,
+          value: stats.activity.lastActiveDate,
           label: "Last Active",
           color: "#67B7FF",
         },
@@ -489,8 +491,8 @@ export function GithubMountain() {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold font-body gradient-primary text-white shadow-primary hover:opacity-90 hover:-translate-y-0.5 transition-all duration-200 w-fit border-0"
               aria-label={`View ${GITHUB_USERNAME} on GitHub`}
             >
-              <Github className="w-4 h-4" aria-hidden="true" />
-              @{GITHUB_USERNAME}
+              <Github className="w-4 h-4" aria-hidden="true" />@
+              {GITHUB_USERNAME}
             </a>
           </motion.div>
 
@@ -499,7 +501,11 @@ export function GithubMountain() {
             initial={{ opacity: 0, x: 32, scale: 0.96 }}
             whileInView={{ opacity: 1, x: 0, scale: 1 }}
             viewport={{ once: true, margin: "-80px" }}
-            transition={{ duration: 0.65, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            transition={{
+              duration: 0.65,
+              delay: 0.2,
+              ease: [0.22, 1, 0.36, 1],
+            }}
             className="hidden lg:block"
           >
             <IllustrationPlaceholder
@@ -566,7 +572,9 @@ export function GithubMountain() {
             </h3>
             {stats && (
               <span className="font-body text-xs text-foreground/40">
-                {stats.recentActivity.totalCommitsThisYear} contributions this year
+                {stats.activity.totalContributionsLastYear > 0
+                  ? `${stats.activity.totalContributionsLastYear} contributions in the last year`
+                  : "Loading contribution data..."}
               </span>
             )}
           </div>
@@ -608,7 +616,11 @@ export function GithubMountain() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.55, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+            transition={{
+              duration: 0.55,
+              delay: 0.1,
+              ease: [0.22, 1, 0.36, 1],
+            }}
             className="p-6 rounded-2xl bg-card border border-border shadow-card"
           >
             {loading ? (
@@ -619,9 +631,7 @@ export function GithubMountain() {
                 ))}
               </div>
             ) : (
-              <ActivityFeed
-                events={stats?.recentActivity.recentEvents ?? []}
-              />
+              <ActivityFeed events={stats?.activity.recentEvents ?? []} />
             )}
           </motion.div>
         </div>

@@ -1,11 +1,10 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import type { Variants } from "framer-motion";
 import { ArrowRight, Coffee, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { IllustrationPlaceholder } from "@/components/ui/illustration-placeholder";
 
-// ── Floating code symbols that orbit the illustration placeholder ──
+// ── Floating code symbols that orbit the illustration ──
 const floatingSymbols = [
   { symbol: "</>", x: "10%", y: "15%", delay: 0, duration: 7 },
   { symbol: "{ }", x: "80%", y: "10%", delay: 1.2, duration: 6 },
@@ -30,20 +29,13 @@ const topStack = [
 const containerVariants: Variants = {
   hidden: {},
   visible: {
-    transition: {
-      staggerChildren: 0.12,
-      delayChildren: 0.2,
-    },
+    transition: { staggerChildren: 0.12, delayChildren: 0.2 },
   },
 };
 
 const itemVariants: Variants = {
   hidden: { opacity: 0, y: 24 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, ease: "easeOut" },
-  },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
 };
 
 const rightVariants: Variants = {
@@ -56,6 +48,114 @@ const rightVariants: Variants = {
   },
 };
 
+// ─────────────────────────────────────────────────────────────
+// ── Typing Animation + Blinking Cursor ──
+// ─────────────────────────────────────────────────────────────
+function TypingText({
+  text,
+  startDelay = 0.9,
+}: {
+  text: string;
+  startDelay?: number;
+}) {
+  const [displayed, setDisplayed] = useState("");
+
+  useEffect(() => {
+    const startTimer = setTimeout(() => {
+      let i = 0;
+      const interval = setInterval(() => {
+        i++;
+        setDisplayed(text.slice(0, i));
+        if (i >= text.length) clearInterval(interval);
+      }, 72);
+      return () => clearInterval(interval);
+    }, startDelay * 1000);
+
+    return () => clearTimeout(startTimer);
+  }, [text, startDelay]);
+
+  return (
+    <span>
+      {displayed}
+      {/* Blinking cursor — always visible after typing starts */}
+      <motion.span
+        aria-hidden="true"
+        style={{
+          display: "inline-block",
+          width: "2px",
+          height: "0.85em",
+          background: "currentColor",
+          verticalAlign: "text-bottom",
+          marginLeft: "2px",
+          borderRadius: "1px",
+        }}
+        animate={{ opacity: [1, 1, 0, 0] }}
+        transition={{
+          duration: 1.05,
+          repeat: Infinity,
+          times: [0, 0.45, 0.5, 0.95],
+          ease: "linear",
+        }}
+      />
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ── Steam Effect — floats above the Laravel coffee mug ──
+// ─────────────────────────────────────────────────────────────
+function SteamEffect() {
+  // Three wiggly steam strands with staggered delays
+  const strands = [
+    { xOffset: -8, delay: 0, duration: 2.4 },
+    { xOffset: 4, delay: 0.75, duration: 2.8 },
+    { xOffset: -1, delay: 1.45, duration: 2.15 },
+  ];
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute"
+      // Cup is ~78% from left / ~78% from top of the 1:1 mascot image.
+      // right ≈ 22%  |  bottom ≈ 26% puts the steam just above the cup opening.
+      style={{ right: "22%", bottom: "25%", width: 44, height: 64 }}
+    >
+      {strands.map((strand, i) => (
+        <motion.div
+          key={i}
+          className="absolute bottom-0"
+          style={{ left: "50%", marginLeft: strand.xOffset }}
+          initial={{ opacity: 0 }}
+          animate={{
+            y: [0, -20, -44, -62],
+            opacity: [0, 0.75, 0.5, 0],
+            x: [0, strand.xOffset > 0 ? 4 : -4, strand.xOffset > 0 ? -3 : 3, 0],
+            scaleX: [0.9, 1.25, 0.75, 0.6],
+          }}
+          transition={{
+            duration: strand.duration,
+            delay: strand.delay,
+            repeat: Infinity,
+            ease: "easeOut",
+          }}
+        >
+          <svg width="11" height="32" viewBox="0 0 11 32" fill="none">
+            <path
+              d="M5.5 30 C2 24 9 19 5.5 13 C2 7 9 2 5.5 0"
+              stroke="rgba(220, 228, 255, 0.62)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ── Main Section ──
+// ─────────────────────────────────────────────────────────────
 export function HeroSection() {
   const handleScroll = (id: string) => {
     document
@@ -73,7 +173,6 @@ export function HeroSection() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 overflow-hidden"
       >
-        {/* Top-right purple blob */}
         <div
           className="absolute -top-32 -right-32 w-[600px] h-[600px] rounded-full opacity-20 blur-3xl"
           style={{
@@ -81,7 +180,6 @@ export function HeroSection() {
               "radial-gradient(circle, hsl(246 100% 74%) 0%, transparent 70%)",
           }}
         />
-        {/* Bottom-left blue blob */}
         <div
           className="absolute -bottom-24 -left-24 w-[480px] h-[480px] rounded-full opacity-15 blur-3xl"
           style={{
@@ -89,7 +187,6 @@ export function HeroSection() {
               "radial-gradient(circle, hsl(234 100% 68%) 0%, transparent 70%)",
           }}
         />
-        {/* Center accent blob */}
         <div
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full opacity-10 blur-3xl"
           style={{
@@ -131,31 +228,13 @@ export function HeroSection() {
             animate="visible"
             className="flex flex-col gap-6 max-w-xl"
           >
-            {/* Availability badge */}
-            <motion.div variants={itemVariants}>
-              <Badge
-                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold border-0 shadow-card"
-                style={{
-                  background: "hsl(155 59% 60% / 0.15)",
-                  color: "hsl(155 59% 40%)",
-                  border: "1px solid hsl(155 59% 60% / 0.3)",
-                }}
-              >
-                <span
-                  className="w-2 h-2 rounded-full bg-[#5ED6A3] animate-pulse-glow"
-                  aria-hidden="true"
-                />
-                Available for freelance projects
-              </Badge>
-            </motion.div>
-
-            {/* Eyebrow / tagline */}
+            {/* Eyebrow / tagline — typing animation */}
             <motion.div
               variants={itemVariants}
               className="flex items-center gap-2 section-label"
             >
-              <Coffee className="w-4 h-4" aria-hidden="true" />
-              <span>Turning Coffee Into Code</span>
+              <Coffee className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+              <TypingText text="Turning Coffee Into Code" startDelay={0.9} />
             </motion.div>
 
             {/* Main headline */}
@@ -169,7 +248,7 @@ export function HeroSection() {
                 className="text-foreground/80"
                 style={{ fontSize: "clamp(1.5rem, 3.5vw, 2.5rem)" }}
               >
-                Full-Stack Developer
+                Web Developer
               </span>
             </motion.h1>
 
@@ -264,7 +343,7 @@ export function HeroSection() {
           </motion.div>
 
           {/* ────────────────────────────────────────
-              RIGHT — illustration placeholder
+              RIGHT — mascot illustration
           ──────────────────────────────────────── */}
           <motion.div
             variants={rightVariants}
@@ -272,7 +351,7 @@ export function HeroSection() {
             animate="visible"
             className="relative flex items-center justify-center"
           >
-            {/* Floating code symbols — absolute positioned around the card */}
+            {/* ── Floating code symbols around the card ── */}
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-0"
@@ -287,8 +366,9 @@ export function HeroSection() {
                     color: "hsl(234 100% 68% / 0.45)",
                   }}
                   animate={{
-                    y: ["0px", "-12px", "0px"],
-                    opacity: [0.45, 0.75, 0.45],
+                    y: ["0px", "-14px", "0px"],
+                    opacity: [0.4, 0.8, 0.4],
+                    rotate: [0, sym.delay % 2 === 0 ? 8 : -8, 0],
                   }}
                   transition={{
                     duration: sym.duration,
@@ -302,7 +382,7 @@ export function HeroSection() {
               ))}
             </div>
 
-            {/* Glow ring behind the placeholder */}
+            {/* Glow ring behind the mascot */}
             <div
               aria-hidden="true"
               className="absolute inset-8 rounded-3xl blur-2xl opacity-20"
@@ -312,26 +392,29 @@ export function HeroSection() {
               }}
             />
 
-            {/* Main illustration placeholder */}
-            <IllustrationPlaceholder
-              scene="Base Camp"
-              icon="🏠"
-              description="Developer desk · Laptop · Coffee mug · Floating code symbols · Mascot character"
-              variant="scene"
-              height={440}
-              className="w-full max-w-lg relative"
-              style={{ borderRadius: "1.5rem" }}
+            {/* Main mascot illustration */}
+            <img
+              src="/mascot/mascot-character.png"
+              alt="Firdaus — developer mascot character"
+              className="relative w-full max-w-lg object-contain drop-shadow-2xl select-none"
+              style={{ minHeight: 440 }}
+              draggable={false}
             />
 
-            {/* Small mascot corner placeholder */}
-            <div className="absolute -bottom-4 -right-4 w-24">
-              <IllustrationPlaceholder
-                scene="Mascot"
-                icon="👨‍💻"
-                variant="mascot"
-                height={96}
-                className="shadow-card"
-                style={{ borderRadius: "1rem" }}
+            {/* ── Steam rising from the coffee mug ──
+                Mug is at ~78% from left / ~78% from top of the 1:1 image.
+                right ≈ 21%  |  bottom ≈ 25% positions the steam just
+                above the rim of the Laravel coffee cup.               */}
+            <SteamEffect />
+
+            {/* Small mascot corner thumbnail */}
+            <div className="absolute -bottom-4 -right-4 w-24 h-24 rounded-2xl overflow-hidden shadow-card border border-border/60 bg-card/80 backdrop-blur-sm">
+              <img
+                src="/mascot/mascot-character.png"
+                alt=""
+                aria-hidden="true"
+                className="w-full h-full object-cover object-top select-none"
+                draggable={false}
               />
             </div>
           </motion.div>

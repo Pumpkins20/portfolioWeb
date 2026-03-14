@@ -1,14 +1,19 @@
 // ═══════════════════════════════════════════════════════════════════
 // GitHub API Library
-// Fetches public profile stats, repositories, and activity data
-// Uses the public GitHub REST API v3 (no auth required for public data)
+// ─ User / repo stats   → GitHub REST API v3 (public, no auth needed)
+// ─ Contribution graph  → github-contributions-api.jogruber.de
+//   (The official GitHub REST API does NOT expose the contribution
+//    calendar without a GraphQL auth token. The jogruber service
+//    scrapes it publicly and exposes a clean JSON endpoint.)
 // ═══════════════════════════════════════════════════════════════════
 
-const GITHUB_USERNAME = "pumpkins20"; // ← update to your actual GitHub username
+export const GITHUB_USERNAME = "Pumpkins20";
 const GITHUB_API_BASE = "https://api.github.com";
+const CONTRIBUTIONS_API_BASE =
+  "https://github-contributions-api.jogruber.de/v4";
 
 // ─────────────────────────────────────────────────────────────────
-// Types
+// Types — GitHub REST API
 // ─────────────────────────────────────────────────────────────────
 
 export interface GitHubUser {
@@ -58,14 +63,50 @@ export interface GitHubEvent {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Types — Contribution calendar (jogruber API)
+// ─────────────────────────────────────────────────────────────────
+
+/** Raw response from github-contributions-api.jogruber.de */
+interface ContributionsAPIResponse {
+  total: Record<string, number>; // { "lastYear": 251, "2024": 180, ... }
+  contributions: Array<{
+    date: string; // "YYYY-MM-DD"
+    count: number;
+    level: 0 | 1 | 2 | 3 | 4;
+  }>;
+}
+
 export interface ContributionDay {
-  date: string; // ISO date string "YYYY-MM-DD"
-  count: number; // number of contributions that day
-  level: 0 | 1 | 2 | 3 | 4; // intensity level (like GitHub's colour scale)
+  date: string;
+  count: number;
+  level: 0 | 1 | 2 | 3 | 4;
 }
 
 export interface ContributionWeek {
   days: ContributionDay[];
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Types — Aggregated stats
+// ─────────────────────────────────────────────────────────────────
+
+export interface LanguageStat {
+  name: string;
+  count: number;
+  percentage: number;
+  color: string;
+}
+
+export interface ActivitySummary {
+  /** Actual total from GitHub contribution calendar (last year) */
+  totalContributionsLastYear: number;
+  /** Longest current streak of consecutive days with ≥1 contribution */
+  activeStreakDays: number;
+  /** Most recent date that had ≥1 contribution */
+  lastActiveDate: string;
+  /** Up to 10 most recent public events (for the activity feed) */
+  recentEvents: GitHubEvent[];
 }
 
 export interface GitHubStats {
@@ -75,26 +116,12 @@ export interface GitHubStats {
   totalForks: number;
   topLanguages: LanguageStat[];
   pinnedRepos: GitHubRepo[];
-  recentActivity: ActivitySummary;
+  activity: ActivitySummary;
   contributions: ContributionWeek[];
 }
 
-export interface LanguageStat {
-  name: string;
-  count: number; // number of repos using this language
-  percentage: number; // share among all repos with a language
-  color: string; // display color for the badge
-}
-
-export interface ActivitySummary {
-  totalCommitsThisYear: number; // estimated from events
-  activeStreakDays: number;
-  lastActiveDate: string;
-  recentEvents: GitHubEvent[];
-}
-
 // ─────────────────────────────────────────────────────────────────
-// Language colour map (subset – extend as needed)
+// Language colour map
 // ─────────────────────────────────────────────────────────────────
 
 const LANGUAGE_COLORS: Record<string, string> = {
@@ -125,43 +152,6 @@ export function getLanguageColor(language: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Simple fetch wrapper with error handling
-// ─────────────────────────────────────────────────────────────────
-
-async function githubFetch<T>(
-  endpoint: string,
-  options: RequestInit = {},
-): Promise<T> {
-  const url = endpoint.startsWith("http")
-    ? endpoint
-    : `${GITHUB_API_BASE}${endpoint}`;
-
-  const headers: HeadersInit = {
-    Accept: "application/vnd.github.v3+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-    ...options.headers,
-  };
-
-  const response = await fetch(url, { ...options, headers });
-
-  if (!response.ok) {
-    if (response.status === 403) {
-      throw new GitHubRateLimitError(
-        "GitHub API rate limit exceeded. Please try again later.",
-      );
-    }
-    if (response.status === 404) {
-      throw new GitHubNotFoundError(`GitHub resource not found: ${url}`);
-    }
-    throw new GitHubAPIError(
-      `GitHub API error ${response.status}: ${response.statusText}`,
-    );
-  }
-
-  return response.json() as Promise<T>;
-}
-
-// ─────────────────────────────────────────────────────────────────
 // Custom error classes
 // ─────────────────────────────────────────────────────────────────
 
@@ -187,83 +177,225 @@ export class GitHubNotFoundError extends GitHubAPIError {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Individual fetcher functions
+// Fetch helpers
 // ─────────────────────────────────────────────────────────────────
 
-/** Fetch public profile info for a user */
+async function githubFetch<T>(
+  endpoint: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const url = endpoint.startsWith("http")
+    ? endpoint
+    : `${GITHUB_API_BASE}${endpoint}`;
+
+  const headers: HeadersInit = {
+    Accept: "application/vnd.github.v3+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    ...options.headers,
+  };
+
+  const res = await fetch(url, { ...options, headers });
+
+  if (!res.ok) {
+    if (res.status === 403) {
+      throw new GitHubRateLimitError(
+        "GitHub API rate limit exceeded. Please try again later.",
+      );
+    }
+    if (res.status === 404) {
+      throw new GitHubNotFoundError(`GitHub resource not found: ${url}`);
+    }
+    throw new GitHubAPIError(
+      `GitHub API error ${res.status}: ${res.statusText}`,
+    );
+  }
+
+  return res.json() as Promise<T>;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Individual fetchers — GitHub REST API
+// ─────────────────────────────────────────────────────────────────
+
 export async function fetchGitHubUser(
   username = GITHUB_USERNAME,
 ): Promise<GitHubUser> {
   return githubFetch<GitHubUser>(`/users/${username}`);
 }
 
-/** Fetch all public repositories (handles pagination up to 500 repos) */
 export async function fetchGitHubRepos(
   username = GITHUB_USERNAME,
 ): Promise<GitHubRepo[]> {
-  const allRepos: GitHubRepo[] = [];
+  const all: GitHubRepo[] = [];
   let page = 1;
   const perPage = 100;
 
   while (true) {
-    const repos = await githubFetch<GitHubRepo[]>(
+    const batch = await githubFetch<GitHubRepo[]>(
       `/users/${username}/repos?sort=updated&per_page=${perPage}&page=${page}`,
     );
-
-    if (repos.length === 0) break;
-
-    // Exclude forks from stats (keep them for display but flag them)
-    allRepos.push(...repos);
-
-    if (repos.length < perPage) break; // last page
+    if (batch.length === 0) break;
+    all.push(...batch);
+    if (batch.length < perPage) break;
     page++;
-    if (page > 5) break; // safety cap: max 500 repos
+    if (page > 5) break; // safety cap — max 500 repos
   }
 
-  return allRepos;
+  return all;
 }
 
-/** Fetch recent public events (commits, PRs, issues, etc.) */
 export async function fetchGitHubEvents(
   username = GITHUB_USERNAME,
-  pages = 3,
+  pages = 2,
 ): Promise<GitHubEvent[]> {
-  const allEvents: GitHubEvent[] = [];
+  const all: GitHubEvent[] = [];
 
   for (let page = 1; page <= pages; page++) {
     try {
-      const events = await githubFetch<GitHubEvent[]>(
+      const batch = await githubFetch<GitHubEvent[]>(
         `/users/${username}/events/public?per_page=100&page=${page}`,
       );
-      if (events.length === 0) break;
-      allEvents.push(...events);
+      if (batch.length === 0) break;
+      all.push(...batch);
     } catch {
-      break; // stop on error (rate limit, etc.)
+      break;
     }
   }
 
-  return allEvents;
+  return all;
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Derived / computed stats
+// Contribution calendar — jogruber API
+//
+// Endpoint: GET /v4/{username}?y=last
+//
+// Why not the GitHub REST API?
+//   The GitHub REST API has no public endpoint for the contribution
+//   calendar (the green-square heatmap). That data is only exposed via
+//   the GraphQL API which requires an authenticated token. The jogruber
+//   service scrapes the public profile page and exposes it as clean JSON
+//   — no token, no CORS issues.
 // ─────────────────────────────────────────────────────────────────
 
-/** Aggregate star count across all non-forked repos */
+/**
+ * Fetch the last-year contribution calendar from jogruber's API and
+ * reshape it into the ContributionWeek[] format used by the UI.
+ *
+ * Returns both the flat contributions (for streak/stats calculation)
+ * and the weekly grid (for the heatmap).
+ */
+export async function fetchContributions(username = GITHUB_USERNAME): Promise<{
+  weeks: ContributionWeek[];
+  totalLastYear: number;
+  streak: number;
+  lastActiveDate: string;
+}> {
+  const url = `${CONTRIBUTIONS_API_BASE}/${username}?y=last`;
+  const res = await fetch(url);
+
+  if (!res.ok) {
+    throw new GitHubAPIError(
+      `Contributions API error ${res.status}: ${res.statusText}`,
+    );
+  }
+
+  const data = (await res.json()) as ContributionsAPIResponse;
+
+  // ── Total contributions ──────────────────────────────────────
+  const totalLastYear =
+    data.total?.lastYear ??
+    Object.values(data.total ?? {}).reduce((s, n) => s + n, 0);
+
+  // ── Sort days chronologically ────────────────────────────────
+  const days = [...data.contributions].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+
+  // ── Active streak (consecutive days ending today with count>0) ─
+  const activeDays = new Set(
+    days.filter((d) => d.count > 0).map((d) => d.date),
+  );
+
+  let streak = 0;
+  const today = new Date();
+
+  for (let i = 0; ; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    if (activeDays.has(dateStr)) {
+      streak++;
+    } else if (i > 0) {
+      // Allow today to be empty (day not over yet) and still keep streak
+      break;
+    }
+  }
+
+  // ── Last active date ─────────────────────────────────────────
+  const activeDaysSorted = [...activeDays].sort();
+  const lastActiveDate =
+    activeDaysSorted[activeDaysSorted.length - 1] ??
+    today.toISOString().slice(0, 10);
+
+  // ── Build 52-week grid ───────────────────────────────────────
+  // Build a lookup map for O(1) access
+  const dayMap: Record<string, ContributionDay> = {};
+  for (const d of days) {
+    dayMap[d.date] = d;
+  }
+
+  // End at the most recent Sunday (align grid to weeks)
+  const endDate = new Date(today);
+  endDate.setDate(today.getDate() - today.getDay()); // roll back to Sunday
+
+  // Start 52 full weeks before that Sunday
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - 52 * 7 + 1);
+
+  const weeks: ContributionWeek[] = [];
+  const cursor = new Date(startDate);
+
+  while (cursor <= endDate) {
+    const week: ContributionDay[] = [];
+
+    for (let d = 0; d < 7; d++) {
+      const dateStr = cursor.toISOString().slice(0, 10);
+      const existing = dayMap[dateStr];
+
+      week.push(
+        existing ?? {
+          date: dateStr,
+          count: 0,
+          level: 0,
+        },
+      );
+
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    weeks.push({ days: week });
+  }
+
+  return { weeks, totalLastYear, streak, lastActiveDate };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Derived stats helpers
+// ─────────────────────────────────────────────────────────────────
+
 export function computeTotalStars(repos: GitHubRepo[]): number {
   return repos
     .filter((r) => !r.fork)
     .reduce((sum, r) => sum + r.stargazers_count, 0);
 }
 
-/** Aggregate fork count across all non-forked repos */
 export function computeTotalForks(repos: GitHubRepo[]): number {
   return repos
     .filter((r) => !r.fork)
     .reduce((sum, r) => sum + r.forks_count, 0);
 }
 
-/** Calculate top programming languages from repo list */
 export function computeTopLanguages(
   repos: GitHubRepo[],
   limit = 6,
@@ -289,7 +421,6 @@ export function computeTopLanguages(
     }));
 }
 
-/** Pick the most "starred + recent" repos to pin (if user hasn't set pinned) */
 export function computePinnedRepos(
   repos: GitHubRepo[],
   limit = 6,
@@ -297,7 +428,6 @@ export function computePinnedRepos(
   return repos
     .filter((r) => !r.fork && !r.private)
     .sort((a, b) => {
-      // Weighted score: stars × 3 + recency bonus
       const scoreA =
         a.stargazers_count * 3 + new Date(a.pushed_at).getTime() / 1e12;
       const scoreB =
@@ -307,123 +437,19 @@ export function computePinnedRepos(
     .slice(0, limit);
 }
 
-/** Summarise recent public activity from event stream */
-export function computeActivitySummary(events: GitHubEvent[]): ActivitySummary {
-  const pushEvents = events.filter((e) => e.type === "PushEvent");
-
-  // Estimate commit count from push events
-  const totalCommitsThisYear = pushEvents.reduce((sum, e) => {
-    const year = new Date(e.created_at).getFullYear();
-    const currentYear = new Date().getFullYear();
-    return year === currentYear ? sum + (e.payload.size ?? 1) : sum;
-  }, 0);
-
-  // Calculate active streak (consecutive days with any event)
-  const activeDates = new Set(events.map((e) => e.created_at.slice(0, 10)));
-  const sortedDates = [...activeDates].sort().reverse();
-  let activeStreakDays = 0;
-  const today = new Date();
-
-  for (let i = 0; i < sortedDates.length; i++) {
-    const expected = new Date(today);
-    expected.setDate(today.getDate() - i);
-    const expectedStr = expected.toISOString().slice(0, 10);
-
-    if (sortedDates.includes(expectedStr)) {
-      activeStreakDays++;
-    } else {
-      break;
-    }
-  }
-
-  return {
-    totalCommitsThisYear,
-    activeStreakDays,
-    lastActiveDate: sortedDates[0] ?? new Date().toISOString().slice(0, 10),
-    recentEvents: events.slice(0, 10),
-  };
-}
-
 // ─────────────────────────────────────────────────────────────────
-// Contribution calendar generation
-// Generates a 52-week grid (like GitHub's contribution heatmap)
-// based on PushEvent dates from the public events API.
-// NOTE: The GitHub public events API only returns the last ~300 events,
-// so for a full year we approximate using available data and pad the rest.
-// ─────────────────────────────────────────────────────────────────
-
-export function buildContributionGrid(
-  events: GitHubEvent[],
-): ContributionWeek[] {
-  // Build a map of date → contribution count
-  const countMap: Record<string, number> = {};
-
-  for (const event of events) {
-    if (event.type === "PushEvent") {
-      const date = event.created_at.slice(0, 10);
-      const commits = event.payload.size ?? 1;
-      countMap[date] = (countMap[date] ?? 0) + commits;
-    } else {
-      // Non-push events still count as 1 contribution
-      const date = event.created_at.slice(0, 10);
-      countMap[date] = (countMap[date] ?? 0) + 1;
-    }
-  }
-
-  // Build 52 weeks (364 days) ending today
-  const weeks: ContributionWeek[] = [];
-  const today = new Date();
-
-  // Align to Sunday
-  const endDate = new Date(today);
-  endDate.setDate(today.getDate() - today.getDay()); // last Sunday
-
-  const startDate = new Date(endDate);
-  startDate.setDate(endDate.getDate() - 52 * 7 + 1); // 52 weeks back
-
-  // Max count for normalisation (level 4 = top ~10% of active days)
-  const maxCount = Math.max(1, ...Object.values(countMap));
-
-  const current = new Date(startDate);
-
-  while (current <= endDate) {
-    const week: ContributionDay[] = [];
-
-    for (let d = 0; d < 7; d++) {
-      const dateStr = current.toISOString().slice(0, 10);
-      const count = countMap[dateStr] ?? 0;
-      const level = toContributionLevel(count, maxCount);
-      week.push({ date: dateStr, count, level });
-      current.setDate(current.getDate() + 1);
-    }
-
-    weeks.push({ days: week });
-  }
-
-  return weeks;
-}
-
-function toContributionLevel(count: number, max: number): 0 | 1 | 2 | 3 | 4 {
-  if (count === 0) return 0;
-  const ratio = count / max;
-  if (ratio <= 0.15) return 1;
-  if (ratio <= 0.35) return 2;
-  if (ratio <= 0.65) return 3;
-  return 4;
-}
-
-// ─────────────────────────────────────────────────────────────────
-// Main aggregator — fetch everything and return a single object
+// Main aggregator
 // ─────────────────────────────────────────────────────────────────
 
 export async function fetchGitHubStats(
   username = GITHUB_USERNAME,
 ): Promise<GitHubStats> {
-  // Fire requests in parallel for speed
-  const [user, repos, events] = await Promise.all([
+  // Fire all three requests in parallel
+  const [user, repos, events, contrib] = await Promise.all([
     fetchGitHubUser(username),
     fetchGitHubRepos(username),
     fetchGitHubEvents(username),
+    fetchContributions(username),
   ]);
 
   return {
@@ -433,34 +459,37 @@ export async function fetchGitHubStats(
     totalForks: computeTotalForks(repos),
     topLanguages: computeTopLanguages(repos),
     pinnedRepos: computePinnedRepos(repos),
-    recentActivity: computeActivitySummary(events),
-    contributions: buildContributionGrid(events),
+    activity: {
+      totalContributionsLastYear: contrib.totalLastYear,
+      activeStreakDays: contrib.streak,
+      lastActiveDate: contrib.lastActiveDate,
+      recentEvents: events.slice(0, 10),
+    },
+    contributions: contrib.weeks,
   };
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Fallback / mock data (used while loading or on API errors)
+// Fallback data  (shown while loading or when both APIs fail)
 // ─────────────────────────────────────────────────────────────────
 
 export const GITHUB_FALLBACK_STATS: Omit<GitHubStats, "user"> = {
-  totalRepos: 24,
-  totalStars: 18,
-  totalForks: 6,
+  totalRepos: 20,
+  totalStars: 10,
+  totalForks: 4,
   topLanguages: [
-    { name: "PHP", count: 10, percentage: 42, color: "#787CB5" },
-    { name: "TypeScript", count: 7, percentage: 29, color: "#3178C6" },
-    { name: "JavaScript", count: 4, percentage: 17, color: "#F7DF1E" },
-    { name: "CSS", count: 2, percentage: 8, color: "#563D7C" },
-    { name: "Dockerfile", count: 1, percentage: 4, color: "#384D54" },
+    { name: "PHP", count: 10, percentage: 45, color: "#787CB5" },
+    { name: "TypeScript", count: 6, percentage: 27, color: "#3178C6" },
+    { name: "JavaScript", count: 4, percentage: 18, color: "#F7DF1E" },
+    { name: "CSS", count: 2, percentage: 9, color: "#563D7C" },
+    { name: "Dockerfile", count: 1, percentage: 5, color: "#384D54" },
   ],
   pinnedRepos: [],
-  recentActivity: {
-    totalCommitsThisYear: 240,
-    activeStreakDays: 5,
+  activity: {
+    totalContributionsLastYear: 0,
+    activeStreakDays: 0,
     lastActiveDate: new Date().toISOString().slice(0, 10),
     recentEvents: [],
   },
   contributions: [],
 };
-
-export { GITHUB_USERNAME };

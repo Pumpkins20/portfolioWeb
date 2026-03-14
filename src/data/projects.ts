@@ -28,6 +28,7 @@ export const projects: Project[] = [
     category: "fullstack",
     featured: true,
     color: "#5B6CFF",
+    imageUrl: "/projects/scada-mockup.webp",
   },
   {
     id: "ptpn-radio",
@@ -42,35 +43,40 @@ export const projects: Project[] = [
     category: "cms",
     featured: true,
     color: "#8A7CFF",
+    imageUrl: "/projects/ptpn-radio.png",
+    liveUrl: "https://ptpnradio.com/",
   },
   {
-    id: "kopi-parang-task",
-    title: "Kopi Parang Task Management",
-    subtitle: "Internal Business Tool",
+    id: "hotel-penginapan",
+    title: "HOTLE",
+    subtitle: "Hospitality Web Design",
     description:
-      "Centralized task and event management system for a coffee business, streamlining team workflow and scheduling.",
+      "Elegant Inn and lodging website built with Webflow, featuring luxury visual design, room showcase, amenities display, and a seamless guest booking experience.",
     challenge:
-      "The business needed an operational system for internal task management and event scheduling.",
-    role: "Developed a centralized task management system that streamlined team workflow and efficient event schedule tracking.",
-    techStack: ["Laravel", "React", "MySQL", "REST API"],
-    category: "fullstack",
+      "The client needed a professional, visually stunning hotel website to attract guests and showcase their property's elegance and facilities online.",
+    role: "Designed and developed a complete hotel website using Webflow — from wireframe to deployment — focusing on luxury aesthetics, responsive layouts, and conversion-optimized pages.",
+    techStack: ["Webflow", "HTML", "CSS", "JavaScript"],
+    category: "frontend",
     featured: true,
     color: "#FFB86B",
+    imageUrl: "/projects/hotel-penginapan.png",
+    liveUrl: "https://hotle.webflow.io/",
   },
-  {
-    id: "laptop-inventory",
-    title: "Laptop Inventory Management System",
-    subtitle: "Business Operation Software",
-    description:
-      "Custom-built inventory and pricing management system tailored to the specific workflow of a laptop retail business.",
-    challenge:
-      "A new laptop sales business needed an accurate stock recording and pricing determination system.",
-    role: "Built a custom inventory management system from scratch, specifically tailored to the client's workflow and pricing structure.",
-    techStack: ["Laravel", "MySQL", "REST API", "Bootstrap"],
-    category: "backend",
-    featured: false,
-    color: "#5ED6A3",
-  },
+  // {
+  //   id: "si-haki",
+  //   title: "Dokumen aproval SIHAKI",
+  //   subtitle: "Business Operation Software",
+  //   description:
+  //     "Custom-built inventory and pricing management system tailored to the specific workflow of a laptop retail business.",
+  //   challenge:
+  //     "A new laptop sales business needed an accurate stock recording and pricing determination system.",
+  //   role: "Built a custom inventory management system from scratch, specifically tailored to the client's workflow and pricing structure.",
+  //   techStack: ["Laravel", "MySQL", "REST API", "Bootstrap"],
+  //   category: "backend",
+  //   featured: false,
+  //   color: "#5ED6A3",
+  //   githubUrl: "https://github.com/Pumpkins20/siHaki",
+  // },
   {
     id: "saestri-mobile",
     title: "Saestri Mobile App",
@@ -84,6 +90,8 @@ export const projects: Project[] = [
     category: "mobile",
     featured: false,
     color: "#FF7AA2",
+    imageUrl: "/projects/saestri-mobile.webp",
+    liveUrl: "https://play.google.com/store/apps/details?id=com.saestri",
   },
 ];
 
